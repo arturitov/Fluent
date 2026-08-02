@@ -43,6 +43,10 @@ export default function Reader({ docId, onExit }: Props) {
   const engineRef = useRef<RsvpEngine | null>(null)
   const sessionStart = useRef<string | null>(null)
   const touchStart = useRef<{ x: number; y: number; t: number } | null>(null)
+  /** Timestamp of the last touch we handled. Browsers fire a synthetic click
+   *  after touchend, which would otherwise toggle playback a second time —
+   *  a single tap would start and immediately stop the reader. */
+  const touchHandledAt = useRef(0)
   const ttsRef = useRef<{ utterance: SpeechSynthesisUtterance | null; baseWord: number }>({ utterance: null, baseWord: 0 })
   const toast = useToast()
 
@@ -320,15 +324,20 @@ export default function Reader({ docId, onExit }: Props) {
 
   // touch gestures on stage
   const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0]
+    const t = e.touches[0] ?? e.changedTouches[0]
+    if (!t) return
     touchStart.current = { x: t.clientX, y: t.clientY, t: Date.now() }
   }
   const onTouchEnd = (e: React.TouchEvent) => {
     const s = touchStart.current
     if (!s) return
+    touchStart.current = null
+    touchHandledAt.current = Date.now()
     const t = e.changedTouches[0]
+    if (!t) return
     const dx = t.clientX - s.x
     const dy = t.clientY - s.y
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) {
       jump(dx > 0 ? -1 : 1)
     } else if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.6) {
@@ -337,7 +346,12 @@ export default function Reader({ docId, onExit }: Props) {
     } else if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && Date.now() - s.t < 400) {
       toggle()
     }
-    touchStart.current = null
+  }
+
+  /** Click handler for the stage — ignored when a touch just handled the same gesture. */
+  const onStageClick = () => {
+    if (Date.now() - touchHandledAt.current < 700) return
+    toggle()
   }
 
   // context peek paragraphs
@@ -395,7 +409,7 @@ export default function Reader({ docId, onExit }: Props) {
         </div>
       </div>
 
-      <div className="reader-stage" onClick={() => toggle()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div className="reader-stage" onClick={onStageClick} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {finished ? (
           <FinishCard
             words={tokens.length}
@@ -421,8 +435,16 @@ export default function Reader({ docId, onExit }: Props) {
           <div className="reader-hint">tap or press space to start · ← → sentence · ↑ ↓ speed</div>
         )}
         {peek && peekContent && (
-          <div className="peek" onClick={(e) => e.stopPropagation()}>
-            <div>
+          <div
+            className="peek"
+            onClick={(e) => {
+              // Tapping the backdrop (not a word) resumes reading.
+              e.stopPropagation()
+              setPeek(false)
+              play()
+            }}
+          >
+            <div onClick={(e) => e.stopPropagation()}>
               <div className="peek-inner">
                 {peekContent.paras.map(([pIdx, words]) => (
                   <p key={pIdx} className={`peek-para ${pIdx === peekContent.currentPara ? 'current' : ''}`}>
@@ -430,9 +452,11 @@ export default function Reader({ docId, onExit }: Props) {
                       <span key={idx}>
                         <span
                           className={`peek-word ${idx === peekContent.currentWord ? 'now' : ''}`}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation()
                             engineRef.current?.seek(chunkForWord(idx))
                             setPeek(false)
+                            play()
                           }}
                         >
                           {text}
@@ -441,7 +465,7 @@ export default function Reader({ docId, onExit }: Props) {
                     ))}
                   </p>
                 ))}
-                <div className="peek-hint">tap any word to jump there · space to continue</div>
+                <div className="peek-hint">tap a word to jump there · tap anywhere else to continue</div>
               </div>
             </div>
           </div>
