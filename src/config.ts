@@ -1,6 +1,6 @@
 // Public client configuration. The publishable key is safe to ship in the
 // frontend — all data access is protected by Postgres Row Level Security.
-const DEFAULT_URL = 'https://wpkjjaqmsnsqvolwfjkk.supabase.co'
+const DEFAULT_URL = 'https://hrsblcjekgtncappdexx.supabase.co'
 const DEFAULT_KEY = 'sb_publishable_0IjiQClCmABIaWthUFbd4w_vtnsn32x'
 
 // Overridable for local development / testing without a rebuild.
