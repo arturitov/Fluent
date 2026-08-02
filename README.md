@@ -4,7 +4,7 @@
 
 Fluent is a sleek RSVP (Rapid Serial Visual Presentation) speed reader as an installable web app. Paste a link, drop in a PDF/EPUB/DOCX, or paste raw text — then read it word-by-word at 300–1200 wpm with an engine that adapts its pacing to the text.
 
-Live app: **https://arturitov.github.io/fluent/**
+Live app: **https://arturitov.github.io/Fluent/**
 
 ## Features
 
