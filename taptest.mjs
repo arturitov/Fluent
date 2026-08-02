@@ -14,7 +14,7 @@ const check = (cond, msg) => {
   if (!cond) fails++
 }
 
-await p.goto('http://127.0.0.1:4179/')
+await p.goto('http://127.0.0.1:4181/')
 await p.waitForSelector('.auth-card')
 await p.click('.auth-switch button')
 await p.fill('input[type=email]', `tap${Date.now()}@f.dev`)

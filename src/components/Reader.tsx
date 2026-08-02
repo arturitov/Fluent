@@ -348,9 +348,13 @@ export default function Reader({ docId, onExit }: Props) {
     }
   }
 
-  /** Click handler for the stage — ignored when a touch just handled the same gesture. */
+  /** True for the synthetic click a browser fires right after a tap we already
+   *  handled. Without this every tap acts twice, and whichever element happens
+   *  to sit under the finger when the overlay renders receives a phantom click. */
+  const isSyntheticClick = () => Date.now() - touchHandledAt.current < 700
+
   const onStageClick = () => {
-    if (Date.now() - touchHandledAt.current < 700) return
+    if (isSyntheticClick()) return
     toggle()
   }
 
@@ -438,35 +442,44 @@ export default function Reader({ docId, onExit }: Props) {
           <div
             className="peek"
             onClick={(e) => {
-              // Tapping the backdrop (not a word) resumes reading.
               e.stopPropagation()
+              // The click that follows the tap which opened this overlay lands
+              // here, because the overlay only just rendered. Ignore it, or the
+              // peek closes the instant it opens. Real taps bubble to the stage.
+              if (isSyntheticClick()) return
               setPeek(false)
               play()
             }}
           >
-            <div onClick={(e) => e.stopPropagation()}>
-              <div className="peek-inner">
-                {peekContent.paras.map(([pIdx, words]) => (
-                  <p key={pIdx} className={`peek-para ${pIdx === peekContent.currentPara ? 'current' : ''}`}>
-                    {words.map(({ idx, text }) => (
-                      <span key={idx}>
-                        <span
-                          className={`peek-word ${idx === peekContent.currentWord ? 'now' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            engineRef.current?.seek(chunkForWord(idx))
-                            setPeek(false)
-                            play()
-                          }}
-                        >
-                          {text}
-                        </span>{' '}
-                      </span>
-                    ))}
-                  </p>
-                ))}
-                <div className="peek-hint">tap a word to jump there · tap anywhere else to continue</div>
-              </div>
+            <div className="peek-inner">
+              {peekContent.paras.map(([pIdx, words]) => (
+                <p key={pIdx} className={`peek-para ${pIdx === peekContent.currentPara ? 'current' : ''}`}>
+                  {words.map(({ idx, text }) => (
+                    <span key={idx}>
+                      <span
+                        className={`peek-word ${idx === peekContent.currentWord ? 'now' : ''}`}
+                        // Keep the tap from bubbling to the stage (which would just
+                        // resume), and clear the guard so this word's own click is
+                        // recognised as deliberate rather than a leftover synthetic one.
+                        onTouchEnd={(e) => {
+                          e.stopPropagation()
+                          touchHandledAt.current = 0
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (isSyntheticClick()) return
+                          engineRef.current?.seek(chunkForWord(idx))
+                          setPeek(false)
+                          play()
+                        }}
+                      >
+                        {text}
+                      </span>{' '}
+                    </span>
+                  ))}
+                </p>
+              ))}
+              <div className="peek-hint">tap a word to jump there · tap anywhere else to continue</div>
             </div>
           </div>
         )}

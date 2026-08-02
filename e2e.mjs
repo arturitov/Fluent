@@ -1,7 +1,7 @@
 import { chromium } from 'playwright'
 import fs from 'fs'
 
-const APP = 'http://127.0.0.1:4179/'
+const APP = 'http://127.0.0.1:4181/'
 const LOCAL_SB_URL = 'http://127.0.0.1:54321'
 const LOCAL_SB_KEY = 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH'
 const SHOTS = '/tmp/shots'
