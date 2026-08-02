@@ -1,5 +1,6 @@
 // Fluent service worker — app-shell cache for offline + instant loads.
-const CACHE = 'fluent-v1'
+// Bump CACHE on every release that must invalidate clients.
+const CACHE = 'fluent-v3'
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg']
 
 self.addEventListener('install', (e) => {
@@ -9,18 +10,24 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
   )
-  self.clients.claim()
+})
+
+self.addEventListener('message', (e) => {
+  if (e.data === 'skipWaiting') self.skipWaiting()
 })
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url)
-  // Never intercept API calls or cross-origin requests (fonts handle their own caching)
+  // Never intercept API calls or cross-origin requests
   if (url.origin !== location.origin) return
   if (e.request.method !== 'GET') return
 
-  // Hashed build assets: cache-first (immutable)
+  // Hashed build assets are immutable → cache-first is safe (filename changes on rebuild)
   if (url.pathname.includes('/assets/')) {
     e.respondWith(
       caches.match(e.request).then(
@@ -36,7 +43,8 @@ self.addEventListener('fetch', (e) => {
     return
   }
 
-  // Navigation/shell: network-first, fall back to cache when offline
+  // Everything else (crucially index.html): network-first so a deploy is picked up
+  // immediately; cache is only a fallback for genuine offline use.
   e.respondWith(
     fetch(e.request)
       .then((res) => {
