@@ -120,6 +120,12 @@ export default function SettingsModal({ onClose, onSignOut }: { onClose: () => v
           <button className="btn" onClick={onSignOut} style={{ justifyContent: 'center' }}>
             <IconLogout /> Sign out
           </button>
+          <div
+            className="version-row"
+            style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--ink-faint)', fontVariantNumeric: 'tabular-nums' }}
+          >
+            Fluent build {__BUILD_VERSION__}
+          </div>
         </div>
       </div>
     </div>

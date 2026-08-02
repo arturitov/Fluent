@@ -1,10 +1,21 @@
-/** ORP layout regression test: for many words, in BOTH engines, assert
- *  (a) no gap or overlap around the focus letter, and
- *  (b) the letter's centre sits on the stage centre (the focus marker). */
+/** ORP layout regression test: for a crafted list of problem words, in BOTH
+ *  engines, assert (a) no gap or overlap around the focus letter and
+ *  (b) the letter's centre sits on the stage centre (the focus marker).
+ *
+ *  The word list deliberately alternates narrow ORP letters (i, l, j, t) with
+ *  wide ones (m, w) — the sequence that broke the old grid layout on WebKit,
+ *  where "just" rendered with the s over the u and "forward" as "for ward". */
 import { chromium, webkit } from 'playwright'
 
 const PORT = process.env.PORT || '4182'
 let fails = 0
+
+// One word per sentence so ArrowRight steps exactly one word at a time.
+const WORDS = [
+  'just', 'moment', 'forward', 'will', 'turning', 'im', 'wow', 'lily', 'maximum',
+  'it', 'community', 'jilt', 'wammy', 'the', 'text', 'a', 'documentation', 'ill', 'mm',
+]
+const TEST_DOC_BODY = 'ORP LAYOUT TEST\n\n' + WORDS.map((w) => `${w}.`).join(' ')
 
 async function run(engine) {
   const launcher = engine === 'webkit' ? webkit : chromium
@@ -24,17 +35,21 @@ async function run(engine) {
   await p.fill('input[type=email]', `orp${Date.now()}@f.dev`)
   await p.fill('input[type=password]', 'orppassword123')
   await p.click('button[type=submit]')
-  await p.waitForSelector('text=Welcome to Fluent', { timeout: 30000 })
-  await p.click('text=Welcome to Fluent')
+  await p.waitForSelector('.import-bar', { timeout: 30000 })
+
+  // paste the crafted doc
+  await p.click('text=Paste text')
+  await p.fill('.modal textarea', TEST_DOC_BODY)
+  await p.click('.modal .btn.primary')
+  await p.waitForSelector('.doc-card >> text=ORP LAYOUT TEST', { timeout: 15000 })
+  await p.click('text=ORP LAYOUT TEST')
   await p.waitForSelector('.rsvp-word', { timeout: 15000 })
   await p.evaluate(() => document.fonts.ready)
   await p.waitForTimeout(300)
 
-  let worstGap = 0
-  let worstDrift = 0
-  let worstWord = ''
-  const samples = []
-  for (let i = 0; i < 40; i++) {
+  let worst = { gap: 0, drift: 0, word: '' }
+  const seen = new Set()
+  for (let i = 0; i < WORDS.length + 4; i++) {
     const m = await p.evaluate(() => {
       const stage = document.querySelector('.rsvp-word')
       const inner = document.querySelector('.rsvp-word-inner')
@@ -47,42 +62,38 @@ async function run(engine) {
         return rects.length ? { left: rects[0].left, right: rects[rects.length - 1].right } : null
       }
       const kids = [...inner.childNodes]
-      const preNode = kids[0]?.nodeType === 3 ? kids[0] : null
-      const postNode = kids[kids.length - 1]?.nodeType === 3 ? kids[kids.length - 1] : null
+      const preNode = kids[0]?.nodeType === 3 && kids[0].textContent ? runRect(kids[0]) : null
+      const last = kids[kids.length - 1]
+      const postNode = last?.nodeType === 3 && last.textContent ? runRect(last) : null
       const o = letter.getBoundingClientRect()
-      const stageRect = stage.getBoundingClientRect()
-      const pre = preNode && preNode.textContent ? runRect(preNode) : null
-      const post = postNode && postNode.textContent ? runRect(postNode) : null
+      const s = stage.getBoundingClientRect()
       return {
         text: inner.textContent,
-        preGap: pre ? +(o.left - pre.right).toFixed(2) : 0,
-        postGap: post ? +(post.left - o.right).toFixed(2) : 0,
-        drift: +((o.left + o.width / 2) - (stageRect.left + stageRect.width / 2)).toFixed(2),
+        preGap: preNode ? +(o.left - preNode.right).toFixed(2) : 0,
+        postGap: postNode ? +(postNode.left - o.right).toFixed(2) : 0,
+        drift: +((o.left + o.width / 2) - (s.left + s.width / 2)).toFixed(2),
       }
     })
     if (m) {
-      samples.push(m)
-      for (const g of [m.preGap, m.postGap]) {
-        if (Math.abs(g) > Math.abs(worstGap)) {
-          worstGap = g
-          worstWord = m.text
-        }
-      }
-      if (Math.abs(m.drift) > Math.abs(worstDrift)) worstDrift = m.drift
+      seen.add(m.text)
+      for (const g of [m.preGap, m.postGap])
+        if (Math.abs(g) > Math.abs(worst.gap)) worst = { ...worst, gap: g, word: m.text }
+      if (Math.abs(m.drift) > Math.abs(worst.drift)) worst.drift = m.drift
     }
     await p.keyboard.press('ArrowRight')
-    await p.waitForTimeout(80)
+    await p.waitForTimeout(70)
   }
 
-  const uniq = new Set(samples.map((s) => s.text)).size
-  console.log(`=== ${engine} — ${uniq} distinct words ===`)
-  console.log(`  worst letter gap/overlap: ${worstGap}px (${JSON.stringify(worstWord)})`)
-  console.log(`  worst centre drift:       ${worstDrift}px`)
-  const gapOk = Math.abs(worstGap) <= 2
-  const driftOk = Math.abs(worstDrift) <= 2
+  console.log(`=== ${engine} — ${seen.size} distinct words (incl. "just") ===`)
+  console.log(`  worst letter gap/overlap: ${worst.gap}px (${JSON.stringify(worst.word)})`)
+  console.log(`  worst centre drift:       ${worst.drift}px`)
+  const gapOk = Math.abs(worst.gap) <= 2
+  const driftOk = Math.abs(worst.drift) <= 2
+  const sawJust = [...seen].some((t) => t.startsWith('just'))
   console.log(`  ${gapOk ? 'PASS' : 'FAIL'} letters are contiguous (|gap| ≤ 2px)`)
   console.log(`  ${driftOk ? 'PASS' : 'FAIL'} focus letter pinned to marker (|drift| ≤ 2px)`)
-  if (!gapOk || !driftOk) fails++
+  console.log(`  ${sawJust ? 'PASS' : 'FAIL'} the word "just" was among the measured words`)
+  if (!gapOk || !driftOk || !sawJust) fails++
   await p.screenshot({ path: `/tmp/shots/orp-fixed-${engine}.png` })
   await b.close()
 }
