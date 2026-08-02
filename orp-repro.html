@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&display=swap" rel="stylesheet">
+<style>
+  body { background: #0b0c10; color: #eceef2; font-family: 'Inter', sans-serif; }
+  .rsvp-word {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    white-space: pre;
+    width: 354px;
+    margin: 20px 0;
+    border: 1px solid #333;
+  }
+  .pre { text-align: right; overflow: visible; }
+  .orp { color: #ff5a3c; }
+  .post { text-align: left; overflow: visible; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+  const words = [
+    ['forward', 2], ['turning', 2], ['just a', 1], ['the text.', 1], ['comprehension', 2], ['is', 1],
+  ]
+  const out = document.getElementById('out')
+  for (const [text, orp] of words) {
+    const d = document.createElement('div')
+    d.className = 'rsvp-word'
+    d.dataset.text = text
+    d.innerHTML = `<span class="pre"></span><span class="orp"></span><span class="post"></span>`
+    d.querySelector('.pre').textContent = text.slice(0, orp)
+    d.querySelector('.orp').textContent = text[orp] ?? ''
+    d.querySelector('.post').textContent = text.slice(orp + 1)
+    out.appendChild(d)
+  }
+  window.measure = () => {
+    return [...document.querySelectorAll('.rsvp-word')].map((w) => {
+      const r = (s) => {
+        const el = w.querySelector(s)
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        const rects = range.getClientRects()
+        return rects.length ? rects[rects.length - 1] : el.getBoundingClientRect()
+      }
+      const pre = r('.pre'), orp = r('.orp'), post = r('.post')
+      return {
+        text: w.dataset.text,
+        preToOrp: +(orp.left - pre.right).toFixed(2),
+        orpToPost: +(post.left - orp.right).toFixed(2),
+      }
+    })
+  }
+</script>
+</body>
+</html>

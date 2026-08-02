@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { APP_TAGLINE } from '../config'
 import { tokenize, chunk, durationFor, Chunk } from '../lib/tokenize'
+import OrpWord from './OrpWord'
 
 const DEMO_TEXT =
   'This is what four hundred and fifty words per minute feels like. Your eyes never move. Each word arrives already in focus, aligned on the one letter your brain reads fastest. Nothing to scroll, nothing to lose your place in. Save an article, a paper, a book — and finish it in half the time.'
@@ -28,11 +29,7 @@ function RsvpDemo() {
     <div className="auth-demo" aria-hidden="true">
       <div className="auth-demo-stage">
         <span className="auth-demo-guide top" />
-        <div className="auth-demo-word">
-          <span className="pre">{c.text.slice(0, c.orp)}</span>
-          <span className="orp">{c.text[c.orp] ?? ''}</span>
-          <span className="post">{c.text.slice(c.orp + 1)}</span>
-        </div>
+        <OrpWord text={c.text} orp={c.orp} />
         <span className="auth-demo-guide bottom" />
       </div>
       <div className="auth-demo-label">live demo · 450 wpm</div>

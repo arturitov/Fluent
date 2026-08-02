@@ -60,12 +60,12 @@ let created = false
 try {
   // ---- sign-in screen ----
   await page.goto(APP, { timeout: 30000 })
-  await page.waitForSelector('.auth-demo-word', { timeout: 20000 })
+  await page.waitForSelector('.auth-demo .rsvp-word-inner', { timeout: 20000 })
   check(true, 'live sign-in screen renders with the RSVP demo')
   check((await page.textContent('.auth-tagline')) === 'Save anything. Read it faster.', 'tagline is clean')
   const drift = await page.evaluate(() => {
     const s = document.querySelector('.auth-demo-stage').getBoundingClientRect()
-    const o = document.querySelector('.auth-demo-word .orp').getBoundingClientRect()
+    const o = document.querySelector('.auth-demo .orp').getBoundingClientRect()
     return Math.abs(o.left + o.width / 2 - (s.left + s.width / 2))
   })
   check(drift < 1, `demo ORP letter pinned to centre (${drift.toFixed(1)}px drift)`)

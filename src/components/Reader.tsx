@@ -5,6 +5,7 @@ import { tokenize, chunk, Chunk } from '../lib/tokenize'
 import { loadSettings, saveSettings, onSettings } from '../lib/settings'
 import { RsvpEngine } from '../lib/rsvp'
 import { useToast } from './Toast'
+import OrpWord from './OrpWord'
 import {
   IconBack, IconPlay, IconPause, IconPrev, IconNext, IconEye, IconSpeaker, IconLayers, IconCheck,
 } from './icons'
@@ -12,19 +13,6 @@ import {
 interface Props {
   docId: string
   onExit: () => void
-}
-
-function OrpWord({ text, orp }: { text: string; orp: number }) {
-  const pre = text.slice(0, orp)
-  const o = text[orp] ?? ''
-  const post = text.slice(orp + 1)
-  return (
-    <div className="rsvp-word">
-      <span className="pre">{pre}</span>
-      <span className="orp">{o}</span>
-      <span className="post">{post}</span>
-    </div>
-  )
 }
 
 export default function Reader({ docId, onExit }: Props) {

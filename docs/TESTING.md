@@ -11,6 +11,7 @@ them mock the data layer.
 | `node taptest.mjs` | local | mobile gestures: single tap, double tap, peek dismissal, swipe-to-speed |
 | `node wpmtest.mjs` | local | speed and peek behaviour stay correct across repeated sessions |
 | `node menutest.mjs` | local | library card menu opens, is on top, and its actions work |
+| `node orp-app-test.mjs` | local | ORP letter contiguity + centering across 40 words, Chromium AND WebKit |
 | `node verify-sw.mjs` | none | service worker beats a poisoned cache, still boots offline |
 | `node verify-live.mjs` | **production** | the deployed site end to end, incl. cross-device resume |
 
@@ -69,6 +70,7 @@ These cost real time to rediscover:
   (repo root). A script in `/tmp` will not resolve the module.
 - **`curl` to GitHub's API** needs `--noproxy '*'`; the sandbox proxy only
   exposes repo-scoped endpoints and returns 502 otherwise.
+- **WebKit for iOS-reported bugs:** `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD= PLAYWRIGHT_BROWSERS_PATH=$HOME/pw npx playwright install webkit`, then run tests with `PLAYWRIGHT_BROWSERS_PATH=$HOME/pw`. Chromium alone missed a WebKit-only layout bug (grid tracks not resizing on text change).
 - **Postgres port 5432 is not directly reachable.** Migrations run through
   the `db-migrate` workflow instead — see [OPERATIONS.md](OPERATIONS.md).
 

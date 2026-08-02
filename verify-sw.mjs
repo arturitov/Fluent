@@ -33,7 +33,7 @@ if (html.includes('STALE BUILD')) {
   console.log('FAIL stale cache was served')
   process.exitCode = 1
 } else {
-  await page.waitForSelector('.auth-demo-word', { timeout: 15000 })
+  await page.waitForSelector('.auth-demo .rsvp-word-inner', { timeout: 15000 })
   console.log('PASS fresh build served despite poisoned cache (network-first shell)')
 }
 
