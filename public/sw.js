@@ -1,10 +1,10 @@
 // Fluent service worker — app-shell cache for offline + instant loads.
-// Bump CACHE on every release that must invalidate clients.
-const CACHE = 'fluent-v3'
+// Bump SHELL_CACHE on every release that must invalidate clients.
+const SHELL_CACHE = 'fluent-v4'
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg']
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)))
+  e.waitUntil(caches.open(SHELL_CACHE).then((c) => c.addAll(SHELL)))
   self.skipWaiting()
 })
 
@@ -12,7 +12,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   )
 })
@@ -35,7 +35,7 @@ self.addEventListener('fetch', (e) => {
           hit ||
           fetch(e.request).then((res) => {
             const copy = res.clone()
-            caches.open(CACHE).then((c) => c.put(e.request, copy))
+            caches.open(SHELL_CACHE).then((c) => c.put(e.request, copy))
             return res
           }),
       ),
@@ -49,7 +49,7 @@ self.addEventListener('fetch', (e) => {
     fetch(e.request)
       .then((res) => {
         const copy = res.clone()
-        caches.open(CACHE).then((c) => c.put(e.request, copy))
+        caches.open(SHELL_CACHE).then((c) => c.put(e.request, copy))
         return res
       })
       .catch(() => caches.match(e.request).then((hit) => hit || caches.match('./index.html'))),
