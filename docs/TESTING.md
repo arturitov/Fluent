@@ -10,6 +10,7 @@ them mock the data layer.
 | `node e2e.mjs` | local | signup → seed → URL/PDF/paste import → playback → peek → resume → stats → ⌘K → themes → mobile viewport |
 | `node taptest.mjs` | local | mobile gestures: single tap, double tap, peek dismissal, swipe-to-speed |
 | `node wpmtest.mjs` | local | speed and peek behaviour stay correct across repeated sessions |
+| `node menutest.mjs` | local | library card menu opens, is on top, and its actions work |
 | `node verify-sw.mjs` | none | service worker beats a poisoned cache, still boots offline |
 | `node verify-live.mjs` | **production** | the deployed site end to end, incl. cross-device resume |
 

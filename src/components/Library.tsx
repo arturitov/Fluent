@@ -290,7 +290,7 @@ export default function Library({ user, onOpenSettings, onOpenStats, onOpenCmd, 
             return (
               <div
                 key={doc.id}
-                className="doc-card card"
+                className={`doc-card card ${menuFor === doc.id ? 'menu-open' : ''}`}
                 style={{ animationDelay: `${Math.min(i * 0.03, 0.3)}s` }}
                 onClick={() => navigate({ name: 'read', id: doc.id })}
               >

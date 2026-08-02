@@ -477,6 +477,14 @@ a {
   transform: translateY(-2px);
   box-shadow: var(--shadow);
 }
+/* The card's entry animation gives it a transform, and therefore its own
+   stacking context — so the menu inside it cannot escape via z-index alone.
+   Lift the whole card above the click-away backdrop (z-index 50) and stop
+   clipping, or the menu renders under it and its items are unclickable. */
+.doc-card.menu-open {
+  overflow: visible;
+  z-index: 70;
+}
 .doc-card-top {
   display: flex;
   align-items: center;

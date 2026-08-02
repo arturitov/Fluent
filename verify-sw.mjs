@@ -2,7 +2,7 @@
  *  since the sandbox proxy's certificate prevents SW registration over the public URL. */
 import { chromium } from 'playwright'
 
-const APP = 'http://127.0.0.1:4181/'
+const APP = 'http://127.0.0.1:4182/'
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--no-proxy-server'] })
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } })
 const page = await ctx.newPage()
