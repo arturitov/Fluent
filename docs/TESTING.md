@@ -11,7 +11,8 @@ them mock the data layer.
 | `node taptest.mjs` | local | mobile gestures: single tap, double tap, peek dismissal, swipe-to-speed |
 | `node wpmtest.mjs` | local | speed and peek behaviour stay correct across repeated sessions |
 | `node menutest.mjs` | local | library card menu opens, is on top, and its actions work |
-| `node orp-app-test.mjs` | local | ORP letter contiguity + centering across 40 words, Chromium AND WebKit |
+| `node orp-app-test.mjs` | local | ORP letter contiguity + centering on problem words, Chromium AND WebKit |
+| `node safearea-test.mjs` | local | installed-PWA safe areas: simulated notch/home-indicator, all screens |
 | `node verify-sw.mjs` | none | service worker beats a poisoned cache, still boots offline |
 | `node verify-live.mjs` | **production** | the deployed site end to end, incl. cross-device resume |
 

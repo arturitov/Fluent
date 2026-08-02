@@ -14,6 +14,12 @@ export default function SettingsModal({ onClose, onSignOut }: { onClose: () => v
     return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', load)
   }, [])
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   const update = (patch: Partial<Settings>) => setS(saveSettings(patch))
 
   return (

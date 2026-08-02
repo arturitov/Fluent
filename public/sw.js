@@ -1,6 +1,6 @@
 // Fluent service worker — app-shell cache for offline + instant loads.
 // Bump SHELL_CACHE on every release that must invalidate clients.
-const SHELL_CACHE = 'fluent-v6'
+const SHELL_CACHE = 'fluent-v8'
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg']
 
 self.addEventListener('install', (e) => {

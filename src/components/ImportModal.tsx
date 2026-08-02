@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { IconX, IconText, IconFile } from './icons'
 
 interface Props {
@@ -14,6 +14,12 @@ export default function ImportModal({ initialTab, onClose, onPaste, onFiles }: P
   const [title, setTitle] = useState('')
   const [over, setOver] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
