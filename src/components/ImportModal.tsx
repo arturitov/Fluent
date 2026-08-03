@@ -76,14 +76,14 @@ export default function ImportModal({ initialTab, onClose, onPaste, onFiles }: P
               }}
             >
               <strong>Drop files here</strong> or click to browse
-              <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--ink-faint)' }}>PDF · EPUB · DOCX · TXT · Markdown</div>
+              <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--ink-faint)' }}>PDF · EPUB · DOCX · TXT · Markdown · Fluent backup</div>
             </div>
             <input
               ref={fileInput}
               type="file"
               hidden
               multiple
-              accept=".pdf,.epub,.docx,.txt,.md,.markdown,text/plain"
+              accept=".pdf,.epub,.docx,.txt,.md,.markdown,.json,text/plain,application/json"
               onChange={(e) => e.target.files && onFiles(Array.from(e.target.files))}
             />
           </div>

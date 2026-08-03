@@ -373,6 +373,31 @@ a {
   font-weight: 600;
   margin-left: 5px;
 }
+.auth-local {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.auth-local-btn {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: all 0.16s var(--ease);
+}
+.auth-local-btn:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+.auth-local-sub {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
 
 /* ============ app shell / library ============ */
 

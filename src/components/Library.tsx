@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Doc, DocStatus } from '../lib/types'
-import { listDocs, saveDoc, updateDoc, deleteDoc, listPositions } from '../lib/db'
+import { listDocs, saveDoc, updateDoc, deleteDoc, listPositions, importLibrary } from '../lib/db'
+import { isLocalMode } from '../lib/mode'
 import { extractFromUrl } from '../lib/extract/url'
 import { extractFromFile, extractFromPaste } from '../lib/extract/files'
 import { SAMPLE_DOC } from '../lib/sample'
@@ -29,7 +30,7 @@ const SOURCE_LABEL: Record<string, string> = {
 }
 
 interface Props {
-  user: User
+  user: User | null
   onOpenSettings: () => void
   onOpenStats: () => void
   onOpenCmd: () => void
@@ -51,9 +52,10 @@ export default function Library({ user, onOpenSettings, onOpenStats, onOpenCmd, 
   const searchRef = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
-    const d = await listDocs()
+    // fetch both before rendering so progress bars never flash in late
+    const [d, pos] = await Promise.all([listDocs(), listPositions()])
+    setPositions(pos)
     setDocs(d)
-    setPositions(await listPositions())
     return d
   }, [])
 
@@ -126,6 +128,13 @@ export default function Library({ user, onOpenSettings, onOpenStats, onOpenCmd, 
     setImporting(true)
     for (const file of Array.from(files)) {
       try {
+        if (file.name.endsWith('.json') || file.type === 'application/json') {
+          // a Fluent backup file → restore the whole library
+          const data = JSON.parse(await file.text())
+          const n = await importLibrary(data)
+          toast(`Restored ${n} document${n === 1 ? '' : 's'} from backup`)
+          continue
+        }
         toast(`Importing ${file.name}…`)
         const ex = await extractFromFile(file)
         await saveDoc(ex)
@@ -219,9 +228,11 @@ export default function Library({ user, onOpenSettings, onOpenStats, onOpenCmd, 
         <button className="btn icon ghost" title="Settings" onClick={onOpenSettings}>
           <IconGear />
         </button>
-        <button className="btn icon ghost" title="Sign out" onClick={onSignOut}>
-          <IconLogout size={18} />
-        </button>
+        {!isLocalMode() && (
+          <button className="btn icon ghost" title="Sign out" onClick={onSignOut}>
+            <IconLogout size={18} />
+          </button>
+        )}
       </div>
 
       <div className="import-bar">
@@ -248,7 +259,7 @@ export default function Library({ user, onOpenSettings, onOpenStats, onOpenCmd, 
           type="file"
           hidden
           multiple
-          accept=".pdf,.epub,.docx,.txt,.md,.markdown,text/plain"
+          accept=".pdf,.epub,.docx,.txt,.md,.markdown,.json,text/plain,application/json"
           onChange={(e) => e.target.files && importFiles(e.target.files)}
         />
       </div>

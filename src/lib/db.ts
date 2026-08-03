@@ -1,9 +1,13 @@
 import { supabase } from './supabase'
 import { Doc, Extracted, Position, ReadingSession, DocStatus } from './types'
 import { countWords } from './tokenize'
+import { isLocalMode } from './mode'
+import * as local from './localdb'
 
-/** Data layer. Talks to Supabase, with a localStorage mirror so the app
- *  stays usable offline and feels instant. */
+/** Data layer. Two interchangeable drivers behind one interface:
+ *  - local (device-only): IndexedDB, no account, nothing leaves the phone
+ *  - cloud: Supabase, with a localStorage mirror for offline resilience
+ *  Every public function branches on the current storage mode. */
 
 const LS_DOCS = 'fluent.cache.docs'
 const LS_POS = 'fluent.cache.positions'
@@ -28,6 +32,7 @@ function writeLS(key: string, value: unknown) {
 // ---------- documents ----------
 
 export async function listDocs(): Promise<Doc[]> {
+  if (isLocalMode()) return local.listDocs()
   try {
     const { data, error } = await supabase
       .from('documents')
@@ -53,6 +58,7 @@ export async function listDocs(): Promise<Doc[]> {
 }
 
 export async function getDoc(id: string): Promise<Doc | null> {
+  if (isLocalMode()) return local.getDoc(id)
   const cached = readLS<Record<string, Doc>>(LS_DOCS, {})
   if (cached[id]?.content) return cached[id]
   try {
@@ -68,6 +74,7 @@ export async function getDoc(id: string): Promise<Doc | null> {
 }
 
 export async function saveDoc(ex: Extracted): Promise<Doc> {
+  if (isLocalMode()) return local.saveDoc(ex)
   const row = {
     title: ex.title || 'Untitled',
     author: ex.author,
@@ -90,6 +97,7 @@ export async function saveDoc(ex: Extracted): Promise<Doc> {
 }
 
 export async function updateDoc(id: string, patch: Partial<Doc>): Promise<void> {
+  if (isLocalMode()) return local.updateDoc(id, patch)
   const cached = readLS<Record<string, Doc>>(LS_DOCS, {})
   if (cached[id]) {
     cached[id] = { ...cached[id], ...patch, updated_at: new Date().toISOString() }
@@ -100,6 +108,7 @@ export async function updateDoc(id: string, patch: Partial<Doc>): Promise<void> 
 }
 
 export async function deleteDoc(id: string): Promise<void> {
+  if (isLocalMode()) return local.deleteDoc(id)
   const cached = readLS<Record<string, Doc>>(LS_DOCS, {})
   delete cached[id]
   writeLS(LS_DOCS, cached)
@@ -109,6 +118,7 @@ export async function deleteDoc(id: string): Promise<void> {
 // ---------- positions ----------
 
 export async function getPosition(documentId: string): Promise<Position | null> {
+  if (isLocalMode()) return local.getPosition(documentId)
   try {
     const { data } = await supabase
       .from('positions')
@@ -116,12 +126,12 @@ export async function getPosition(documentId: string): Promise<Position | null> 
       .eq('document_id', documentId)
       .maybeSingle()
     if (data) {
-      const local = readLS<Record<string, Position>>(LS_POS, {})
-      const l = local[documentId]
+      const mirror = readLS<Record<string, Position>>(LS_POS, {})
+      const l = mirror[documentId]
       // prefer whichever is newer
       if (l && l.updated_at && data.updated_at && l.updated_at > data.updated_at) return l
-      local[documentId] = data as Position
-      writeLS(LS_POS, local)
+      mirror[documentId] = data as Position
+      writeLS(LS_POS, mirror)
       return data as Position
     }
   } catch {
@@ -131,12 +141,13 @@ export async function getPosition(documentId: string): Promise<Position | null> 
 }
 
 export async function listPositions(): Promise<Record<string, number>> {
+  if (isLocalMode()) return local.listPositions()
   try {
     const { data } = await supabase.from('positions').select('document_id,word_index')
     if (data) {
       const map = Object.fromEntries(data.map((p) => [p.document_id, p.word_index]))
-      const local = readLS<Record<string, Position>>(LS_POS, {})
-      Object.values(local).forEach((p) => {
+      const mirror = readLS<Record<string, Position>>(LS_POS, {})
+      Object.values(mirror).forEach((p) => {
         if (map[p.document_id] === undefined || (p.word_index ?? 0) > map[p.document_id]) map[p.document_id] = p.word_index
       })
       return map
@@ -144,14 +155,15 @@ export async function listPositions(): Promise<Record<string, number>> {
   } catch {
     /* offline */
   }
-  const local = readLS<Record<string, Position>>(LS_POS, {})
-  return Object.fromEntries(Object.values(local).map((p) => [p.document_id, p.word_index]))
+  const mirror = readLS<Record<string, Position>>(LS_POS, {})
+  return Object.fromEntries(Object.values(mirror).map((p) => [p.document_id, p.word_index]))
 }
 
 export async function savePosition(pos: Position): Promise<void> {
-  const local = readLS<Record<string, Position>>(LS_POS, {})
-  local[pos.document_id] = { ...pos, updated_at: new Date().toISOString() }
-  writeLS(LS_POS, local)
+  if (isLocalMode()) return local.savePosition(pos)
+  const mirror = readLS<Record<string, Position>>(LS_POS, {})
+  mirror[pos.document_id] = { ...pos, updated_at: new Date().toISOString() }
+  writeLS(LS_POS, mirror)
   const { error } = await supabase
     .from('positions')
     .upsert({ document_id: pos.document_id, word_index: pos.word_index, wpm: pos.wpm }, { onConflict: 'document_id,user_id' })
@@ -162,6 +174,8 @@ export async function savePosition(pos: Position): Promise<void> {
 
 export async function saveSession(s: ReadingSession): Promise<void> {
   if (s.words_read < 10 || s.duration_ms < 3000) return // ignore blips
+  if (isLocalMode())
+    return local.saveSession({ ...s, wpm: Math.round(s.wpm), duration_ms: Math.round(s.duration_ms) })
   const { error } = await supabase.from('reading_sessions').insert({
     document_id: s.document_id,
     wpm: Math.round(s.wpm),
@@ -173,6 +187,7 @@ export async function saveSession(s: ReadingSession): Promise<void> {
 }
 
 export async function listSessions(days = 90): Promise<ReadingSession[]> {
+  if (isLocalMode()) return local.listSessions(days)
   const since = new Date(Date.now() - days * 86400_000).toISOString()
   try {
     const { data, error } = await supabase
@@ -201,6 +216,7 @@ function queuePending(p: Pending) {
 }
 
 export async function flushPending(): Promise<void> {
+  if (isLocalMode()) return
   const q = readLS<Pending[]>(LS_PENDING, [])
   if (!q.length) return
   writeLS(LS_PENDING, [])
@@ -219,4 +235,83 @@ export function clearLocalCache() {
   localStorage.removeItem(LS_DOCS)
   localStorage.removeItem(LS_POS)
   localStorage.removeItem(LS_PENDING)
+}
+
+// ---------- device-only mode: migration, backup, restore ----------
+
+/** Copy the signed-in user's entire cloud library into on-device storage.
+ *  Used when switching to device-only mode so nothing is lost. */
+export async function migrateCloudToLocal(): Promise<number> {
+  const { data: docs, error } = await supabase.from('documents').select('*')
+  if (error) throw error
+  const { data: positions } = await supabase.from('positions').select('document_id,word_index,wpm,updated_at')
+  const { data: sessions } = await supabase
+    .from('reading_sessions')
+    .select('document_id,wpm,words_read,duration_ms,started_at')
+  return local.importAll({
+    app: 'fluent',
+    version: 1,
+    exported_at: new Date().toISOString(),
+    docs: (docs ?? []) as Doc[],
+    positions: (positions ?? []) as Position[],
+    sessions: (sessions ?? []) as ReadingSession[],
+  })
+}
+
+/** Full library backup as a downloadable JSON object (works in both modes). */
+export async function exportLibrary(): Promise<local.LibraryExport> {
+  if (isLocalMode()) return local.exportAll()
+  const { data: docs } = await supabase.from('documents').select('*')
+  const { data: positions } = await supabase.from('positions').select('document_id,word_index,wpm,updated_at')
+  const { data: sessions } = await supabase
+    .from('reading_sessions')
+    .select('document_id,wpm,words_read,duration_ms,started_at')
+  return {
+    app: 'fluent',
+    version: 1,
+    exported_at: new Date().toISOString(),
+    docs: (docs ?? []) as Doc[],
+    positions: (positions ?? []) as Position[],
+    sessions: (sessions ?? []) as ReadingSession[],
+  }
+}
+
+/** Restore a backup file. In device-only mode ids are preserved; in cloud
+ *  mode docs are re-inserted (new ids) and their positions remapped. */
+export async function importLibrary(data: local.LibraryExport): Promise<number> {
+  if (!data || data.app !== 'fluent' || !Array.isArray(data.docs)) {
+    throw new Error("That file doesn't look like a Fluent backup.")
+  }
+  if (isLocalMode()) return local.importAll(data)
+  let n = 0
+  const posByDoc = new Map((data.positions ?? []).map((p) => [p.document_id, p]))
+  for (const doc of data.docs) {
+    if (!doc || typeof doc.content !== 'string') continue
+    const { data: inserted, error } = await supabase
+      .from('documents')
+      .insert({
+        title: doc.title,
+        author: doc.author,
+        source_type: doc.source_type,
+        source_url: doc.source_url,
+        content: doc.content,
+        excerpt: doc.excerpt,
+        cover_url: doc.cover_url,
+        favicon_url: doc.favicon_url,
+        word_count: doc.word_count,
+        status: doc.status,
+        tags: doc.tags ?? [],
+      })
+      .select('id')
+      .single()
+    if (error) continue
+    n++
+    const pos = posByDoc.get(doc.id)
+    if (pos && inserted) {
+      await supabase
+        .from('positions')
+        .upsert({ document_id: inserted.id, word_index: pos.word_index, wpm: pos.wpm }, { onConflict: 'document_id,user_id' })
+    }
+  }
+  return n
 }

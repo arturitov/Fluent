@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, User } from './lib/supabase'
 import { flushPending, clearLocalCache } from './lib/db'
+import { isLocalMode, setMode } from './lib/mode'
 import AuthScreen from './components/AuthScreen'
 import Library from './components/Library'
 import Reader from './components/Reader'
@@ -26,12 +27,17 @@ export function navigate(route: Route) {
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(false)
+  const [localMode, setLocalMode] = useState(isLocalMode())
   const [route, setRoute] = useState<Route>(parseHash())
   const [showSettings, setShowSettings] = useState(false)
   const [showCmd, setShowCmd] = useState(false)
   const [libraryKey, setLibraryKey] = useState(0) // bump to refresh library
 
   useEffect(() => {
+    if (localMode) {
+      setAuthReady(true)
+      return
+    }
     supabase.auth
       .getSession()
       .then(({ data }) => {
@@ -44,7 +50,7 @@ export default function App() {
       setAuthReady(true)
     })
     return () => sub.subscription.unsubscribe()
-  }, [])
+  }, [localMode])
 
   useEffect(() => {
     const onHash = () => setRoute(parseHash())
@@ -52,13 +58,14 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  // flush queued offline writes when we come back online
+  // flush queued offline writes when we come back online (cloud mode only)
   useEffect(() => {
+    if (localMode) return
     const flush = () => flushPending()
     window.addEventListener('online', flush)
     if (user) flushPending()
     return () => window.removeEventListener('online', flush)
-  }, [user])
+  }, [user, localMode])
 
   // global shortcuts
   useEffect(() => {
@@ -73,12 +80,28 @@ export default function App() {
   }, [])
 
   const signOut = useCallback(async () => {
+    if (isLocalMode()) {
+      // "Sign out" of device mode = go back to the account screen; the
+      // on-device library stays put for when they return.
+      setMode('cloud')
+      setLocalMode(false)
+      navigate({ name: 'library' })
+      return
+    }
     await supabase.auth.signOut()
     clearLocalCache()
     navigate({ name: 'library' })
   }, [])
 
+  const enterLocalMode = useCallback(() => {
+    setMode('local')
+    setLocalMode(true)
+    navigate({ name: 'library' })
+  }, [])
+
   const refreshLibrary = useCallback(() => setLibraryKey((k) => k + 1), [])
+
+  const signedIn = localMode || !!user
 
   const content = useMemo(() => {
     if (!authReady)
@@ -87,7 +110,7 @@ export default function App() {
           <div className="spinner" />
         </div>
       )
-    if (!user) return <AuthScreen />
+    if (!signedIn) return <AuthScreen onUseLocal={enterLocalMode} />
     if (route.name === 'read')
       return <Reader docId={route.id} onExit={() => { refreshLibrary(); navigate({ name: 'library' }) }} />
     if (route.name === 'stats') return <StatsPage onBack={() => navigate({ name: 'library' })} />
@@ -101,13 +124,26 @@ export default function App() {
         onSignOut={signOut}
       />
     )
-  }, [authReady, user, route, libraryKey, signOut, refreshLibrary])
+  }, [authReady, signedIn, user, route, libraryKey, signOut, refreshLibrary, enterLocalMode])
 
   return (
     <ToastProvider>
       {content}
-      {showSettings && user && <SettingsModal onClose={() => setShowSettings(false)} onSignOut={signOut} />}
-      {showCmd && user && (
+      {showSettings && signedIn && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          onSignOut={signOut}
+          userEmail={user?.email ?? null}
+          onModeSwitched={() => {
+            setShowSettings(false)
+            setLocalMode(isLocalMode())
+            setUser(null)
+            refreshLibrary()
+            navigate({ name: 'library' })
+          }}
+        />
+      )}
+      {showCmd && signedIn && (
         <CommandBar
           onClose={() => setShowCmd(false)}
           onOpenSettings={() => {

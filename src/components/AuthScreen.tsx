@@ -37,7 +37,7 @@ function RsvpDemo() {
   )
 }
 
-export default function AuthScreen() {
+export default function AuthScreen({ onUseLocal }: { onUseLocal: () => void }) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -120,6 +120,12 @@ export default function AuthScreen() {
           >
             {mode === 'signin' ? 'Create an account' : 'Sign in'}
           </button>
+        </div>
+        <div className="auth-local">
+          <button className="auth-local-btn" onClick={onUseLocal}>
+            Skip the account — keep everything on this device
+          </button>
+          <div className="auth-local-sub">No sign-in, no server. Your library lives in this browser's storage.</div>
         </div>
       </div>
     </div>

@@ -1,11 +1,59 @@
 import React, { useEffect, useState } from 'react'
 import { loadSettings, saveSettings } from '../lib/settings'
 import { Settings } from '../lib/types'
+import { isLocalMode, setMode } from '../lib/mode'
+import { migrateCloudToLocal, exportLibrary, clearLocalCache } from '../lib/db'
+import { supabase } from '../lib/supabase'
+import { useToast } from './Toast'
 import { IconX, IconLogout } from './icons'
 
-export default function SettingsModal({ onClose, onSignOut }: { onClose: () => void; onSignOut: () => void }) {
+interface Props {
+  onClose: () => void
+  onSignOut: () => void
+  userEmail: string | null
+  onModeSwitched: () => void
+}
+
+export default function SettingsModal({ onClose, onSignOut, userEmail, onModeSwitched }: Props) {
   const [s, setS] = useState<Settings>(loadSettings())
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const [busy, setBusy] = useState(false)
+  const local = isLocalMode()
+  const toast = useToast()
+
+  const switchToLocal = async () => {
+    setBusy(true)
+    try {
+      const n = await migrateCloudToLocal()
+      setMode('local')
+      await supabase.auth.signOut()
+      clearLocalCache()
+      toast(`Copied ${n} document${n === 1 ? '' : 's'} to this device`)
+      onModeSwitched()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not copy your library', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doExport = async () => {
+    setBusy(true)
+    try {
+      const data = await exportLibrary()
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `fluent-backup-${data.exported_at.slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(a.href)
+      toast(`Backup saved (${data.docs.length} documents)`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Export failed', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   useEffect(() => {
     const load = () => setVoices(window.speechSynthesis?.getVoices() ?? [])
@@ -123,8 +171,30 @@ export default function SettingsModal({ onClose, onSignOut }: { onClose: () => v
             </div>
           )}
           <hr style={{ border: 'none', borderTop: '1px solid var(--border)' }} />
+          <div className="setting-row">
+            <div>
+              <div className="label">Storage</div>
+              <div className="sub">
+                {local ? 'This device only — nothing leaves your phone' : `Synced account · ${userEmail ?? ''}`}
+              </div>
+            </div>
+            {!local && (
+              <button className="btn" disabled={busy} onClick={switchToLocal}>
+                {busy ? 'Copying…' : 'Go device-only'}
+              </button>
+            )}
+          </div>
+          <div className="setting-row">
+            <div>
+              <div className="label">Backup</div>
+              <div className="sub">Download your library as a file; restore it via Upload</div>
+            </div>
+            <button className="btn" disabled={busy} onClick={doExport}>
+              Export
+            </button>
+          </div>
           <button className="btn" onClick={onSignOut} style={{ justifyContent: 'center' }}>
-            <IconLogout /> Sign out
+            <IconLogout /> {local ? 'Switch to a synced account' : 'Sign out'}
           </button>
           <div
             className="version-row"

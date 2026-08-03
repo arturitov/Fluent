@@ -13,6 +13,8 @@ them mock the data layer.
 | `node menutest.mjs` | local | library card menu opens, is on top, and its actions work |
 | `node orp-app-test.mjs` | local | ORP letter contiguity + centering on problem words, Chromium AND WebKit |
 | `node safearea-test.mjs` | local | installed-PWA safe areas: simulated notch/home-indicator, all screens |
+| `node localmode-test.mjs` | **none** | device-only mode with Supabase blocked: no-account flow, IDB persistence, export/restore |
+| `node migrate-test.mjs` | local | cloud → device-only switch copies docs + positions, then works with backend blocked |
 | `node verify-sw.mjs` | none | service worker beats a poisoned cache, still boots offline |
 | `node verify-live.mjs` | **production** | the deployed site end to end, incl. cross-device resume |
 
